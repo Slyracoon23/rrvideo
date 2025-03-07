@@ -136,7 +136,8 @@ function getHtml(events: Array<eventWithTime>, config?: RRvideoConfig): string {
         props: {
           events,
           showController: true,
-          skipInactive: false,
+          skipInactive: true,
+          speed: 2,
           autoPlay: true,
           mouseTail: {
             strokeStyle: 'yellow',
