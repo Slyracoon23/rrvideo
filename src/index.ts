@@ -169,8 +169,8 @@ function getHtml(events: Array<eventWithTime>, config?: RRvideoConfig): string {
  * Preprocess all events to get a maximum view port size.
  */
 function getMaxViewport(events: eventWithTime[]) {
-  let maxWidth = 500,
-    maxHeight = 500;
+  let maxWidth = 0,
+    maxHeight = 0;
   events.forEach((event) => {
     if (event.type !== EventType.Meta) return;
     if (event.data.width > maxWidth) maxWidth = event.data.width;
@@ -261,11 +261,6 @@ export async function transformToVideo(options: RRvideoConfig) {
       
     browser.close(), // Commented out to keep browser open
   ]);
-  
-  // Sleep for 5 minutes (300000 milliseconds) before ending the function
-  console.log("Waiting for 5 minutes before ending...");
-  await new Promise(resolve => setTimeout(resolve, 300000));
-  console.log("5 minute wait completed");
   
   return outputPath;
 }
