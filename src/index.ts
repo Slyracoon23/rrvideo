@@ -5,7 +5,7 @@ import { EventType, eventWithTime } from '@rrweb/types';
 import type Player from 'rrweb-player';
 
 // The max valid scale value for the scaling method which can improve the video quality.
-const MaxScaleValue = 2.5;
+const MaxScaleValue = 1;
 
 type RRvideoConfig = {
   input: string;
@@ -43,7 +43,49 @@ function getHtml(events: Array<eventWithTime>, config?: RRvideoConfig): string {
     <title>rrweb Player</title>
     <!-- Add rrweb-player CSS from CDN -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/rrweb-player@latest/dist/style.css" />
-    <style>html, body {padding: 0; border: none; margin: 0;}</style>
+    <style>
+      html, body {
+        padding: 0;
+        border: none;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      
+      /* Responsive container structure */
+      .player-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+      }
+      
+      /* Player wrapper to maintain aspect ratio and handle scaling */
+      .player-wrapper {
+        position: relative;
+        transform-origin: center center;
+        width: 100%;
+        height: 100%;
+      }
+      
+      /* Ensure replayer elements maintain proper scaling */
+      .replayer-wrapper {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform-origin: center center;
+      }
+      
+      /* Style the mouse trail canvas */
+      .replayer-mouse-tail {
+        position: absolute;
+        pointer-events: none;
+      }
+    </style>
     
     <!-- Define events data -->
     <script>
@@ -57,49 +99,100 @@ function getHtml(events: Array<eventWithTime>, config?: RRvideoConfig): string {
     <script src="https://cdn.jsdelivr.net/npm/rrweb-player@latest/dist/index.js"></script>
   </head>
   <body>
-    <!-- Player will be inserted here -->
+    <!-- Responsive container structure -->
+    <div class="player-container">
+      <div class="player-wrapper" id="player-wrapper">
+        <!-- Player will be inserted here -->
+      </div>
+    </div>
   </body>
   
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const userConfig = ${JSON.stringify(config?.rrwebPlayer || {})};
       
-      // Hard code to full screen dimensions
-      const width = window.innerWidth;
-      const height = window.innerHeight;
+      // Get container dimensions
+      const container = document.querySelector('.player-container');
+      const wrapper = document.getElementById('player-wrapper');
+      
+      // Original content dimensions from config
+      const contentWidth = userConfig.width || 1280; // Default if not specified
+      const contentHeight = userConfig.height || 720; // Default if not specified
+      const aspectRatio = contentWidth / contentHeight;
       
       // Create the rrweb player instance
       window.replayer = new rrwebPlayer({
-        target: document.body,
-        width: width,
-        height: height,
+        target: wrapper,
+        width: contentWidth,
+        height: contentHeight,
         props: {
           events,
           showController: false,
           skipInactive: true,
-          showDebug: false,
-          showWarning: false,
           autoPlay: true,
           mouseTail: {
             strokeStyle: 'yellow',
           },
+          ...userConfig,
         },
       });
       
       // Add event listeners
-      window.replayer.addEventListener('finish', () => window.onReplayFinish());
-      window.replayer.addEventListener('ui-update-progress', (payload) => window.onReplayProgressUpdate(payload));
-      
-      // Force the player to be full screen
-      const resizePlayer = () => {
-        const wrapper = document.querySelector('.replayer-wrapper');
-        if (wrapper) {
-          wrapper.style.width = '100%';
-          wrapper.style.height = '100%';
-          wrapper.style.transform = 'none';
+      window.replayer.addEventListener('ui-update-progress', (payload) => {
+        if (typeof window.onReplayProgressUpdate === 'function') {
+          window.onReplayProgressUpdate(payload);
         }
+      });
+      
+      window.replayer.addEventListener('finish', () => {
+        if (typeof window.onReplayFinish === 'function') {
+          window.onReplayFinish();
+        }
+      });
+      
+      // Function to adjust scaling based on container size
+      const adjustScaling = () => {
+        requestAnimationFrame(() => {
+          const containerWidth = container.clientWidth;
+          const containerHeight = container.clientHeight;
+          
+          // Calculate scale to fit the container while maintaining aspect ratio
+          let scale;
+          if (containerWidth / containerHeight > aspectRatio) {
+            // Container is wider than content aspect ratio
+            scale = containerHeight / contentHeight;
+          } else {
+            // Container is taller than content aspect ratio
+            scale = containerWidth / contentWidth;
+          }
+          
+          // Apply scaling to the replayer wrapper
+          const replayerWrapper = wrapper.querySelector('.replayer-wrapper');
+          if (replayerWrapper) {
+            replayerWrapper.style.transform = \`scale(\${scale}) translate(-50%, -50%)\`;
+            
+            // Scale mouse trail canvas
+            const mouseTail = document.querySelector('.replayer-mouse-tail');
+            if (mouseTail) {
+              mouseTail.style.transform = \`scale(\${scale})\`;
+              mouseTail.style.transformOrigin = 'top left';
+            }
+          }
+        });
       };
       
+      // Initial scaling adjustment
+      setTimeout(adjustScaling, 100); // Small delay to ensure player is rendered
+      
+      // Set up ResizeObserver to detect container size changes
+      const resizeObserver = new ResizeObserver(() => {
+        adjustScaling();
+      });
+      
+      resizeObserver.observe(container);
+      
+      // Also handle window resize events as a fallback
+      window.addEventListener('resize', adjustScaling);
     });
   </script>
 </html>
@@ -110,8 +203,8 @@ function getHtml(events: Array<eventWithTime>, config?: RRvideoConfig): string {
  * Preprocess all events to get a maximum view port size.
  */
 function getMaxViewport(events: eventWithTime[]) {
-  let maxWidth = 1024,
-    maxHeight = 576;
+  let maxWidth = 500,
+    maxHeight = 500;
   events.forEach((event) => {
     if (event.type !== EventType.Meta) return;
     if (event.data.width > maxWidth) maxWidth = event.data.width;
@@ -176,7 +269,6 @@ export async function transformToVideo(options: RRvideoConfig) {
       config.onProgressUpdate(data.payload);
     },
   );
-
   // Wait for the replay to finish
   await new Promise<void>(
     (resolve) =>
@@ -202,7 +294,14 @@ export async function transformToVideo(options: RRvideoConfig) {
         );
       })
       .finally(() => void cleanFiles(videoPath)),
-    browser.close(),
+      
+    // browser.close(), // Commented out to keep browser open
   ]);
+  
+  // Sleep for 5 minutes (300000 milliseconds) before ending the function
+  console.log("Waiting for 5 minutes before ending...");
+  await new Promise(resolve => setTimeout(resolve, 300000));
+  console.log("5 minute wait completed");
+  
   return outputPath;
 }
