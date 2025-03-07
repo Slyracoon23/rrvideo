@@ -1,0 +1,9 @@
+---
+description: Use pnpm commands
+globs: 
+alwaysApply: false
+---
+
+# Pnpm ussage
+
+Use pnpm instead of other package managers
