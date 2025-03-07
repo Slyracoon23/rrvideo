@@ -4,13 +4,6 @@ import { chromium } from 'playwright';
 import { EventType, eventWithTime } from '@rrweb/types';
 import type Player from 'rrweb-player';
 
-const rrwebScriptPath = path.resolve(
-  require.resolve('rrweb-player'),
-  '../../dist/rrweb-player.umd.cjs',
-);
-const rrwebStylePath = path.resolve(rrwebScriptPath, '../style.css');
-const rrwebRaw = fs.readFileSync(rrwebScriptPath, 'utf-8');
-const rrwebStyle = fs.readFileSync(rrwebStylePath, 'utf-8');
 // The max valid scale value for the scaling method which can improve the video quality.
 const MaxScaleValue = 2.5;
 
@@ -31,7 +24,7 @@ type RRvideoConfig = {
 const defaultConfig: Required<RRvideoConfig> = {
   input: '',
   output: 'rrvideo-output.webm',
-  headless: true,
+  headless: false,
   // A good trade-off value between quality and file size.
   resolutionRatio: 0.8,
   onProgressUpdate: () => {
@@ -42,39 +35,73 @@ const defaultConfig: Required<RRvideoConfig> = {
 
 function getHtml(events: Array<eventWithTime>, config?: RRvideoConfig): string {
   return `
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
-  <style>${rrwebStyle}</style>
-  <style>html, body {padding: 0; border: none; margin: 0;}</style>
-  </head>
-  <body>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>rrweb Player</title>
+    <!-- Add rrweb-player CSS from CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/rrweb-player@latest/dist/style.css" />
+    <style>html, body {padding: 0; border: none; margin: 0;}</style>
+    
+    <!-- Define events data -->
     <script>
-      ${rrwebRaw};
-      /*<!--*/
       const events = ${JSON.stringify(events).replace(
         /<\/script>/g,
         '<\\/script>',
       )};
-      /*-->*/
+    </script>
+    
+    <!-- Add rrweb-player JS from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/rrweb-player@latest/dist/index.js"></script>
+  </head>
+  <body>
+    <!-- Player will be inserted here -->
+  </body>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
       const userConfig = ${JSON.stringify(config?.rrwebPlayer || {})};
-      window.replayer = new rrwebPlayer.Player({
+      
+      // Hard code to full screen dimensions
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      
+      // Create the rrweb player instance
+      window.replayer = new rrwebPlayer({
         target: document.body,
-        width: userConfig.width,
-        height: userConfig.height,
+        width: width,
+        height: height,
         props: {
-          ...userConfig,
           events,
-          showController: false,          
+          showController: false,
+          skipInactive: true,
+          showDebug: false,
+          showWarning: false,
+          autoPlay: true,
+          mouseTail: {
+            strokeStyle: 'yellow',
+          },
         },
       });
+      
+      // Add event listeners
       window.replayer.addEventListener('finish', () => window.onReplayFinish());
-      window.replayer.addEventListener('ui-update-progress', (payload)=> window.onReplayProgressUpdate
-      (payload));
-      window.replayer.addEventListener('resize',()=>document.querySelector('.replayer-wrapper').style.transform = 'scale(${
-        (config?.resolutionRatio ?? 1) * MaxScaleValue
-      }) translate(-50%, -50%)');
-    </script>
-  </body>
+      window.replayer.addEventListener('ui-update-progress', (payload) => window.onReplayProgressUpdate(payload));
+      
+      // Force the player to be full screen
+      const resizePlayer = () => {
+        const wrapper = document.querySelector('.replayer-wrapper');
+        if (wrapper) {
+          wrapper.style.width = '100%';
+          wrapper.style.height = '100%';
+          wrapper.style.transform = 'none';
+        }
+      };
+      
+    });
+  </script>
 </html>
 `;
 }
@@ -83,8 +110,8 @@ function getHtml(events: Array<eventWithTime>, config?: RRvideoConfig): string {
  * Preprocess all events to get a maximum view port size.
  */
 function getMaxViewport(events: eventWithTime[]) {
-  let maxWidth = 0,
-    maxHeight = 0;
+  let maxWidth = 1024,
+    maxHeight = 576;
   events.forEach((event) => {
     if (event.type !== EventType.Meta) return;
     if (event.data.width > maxWidth) maxWidth = event.data.width;
@@ -116,7 +143,11 @@ export async function transformToVideo(options: RRvideoConfig) {
   ) as eventWithTime[];
 
   // Make the browser viewport fit the player size.
-  const maxViewport = getMaxViewport(events);
+  // const maxViewport = getMaxViewport(events);
+  const maxViewport = {
+    width: 2048,
+    height: 1152,
+  };
   // Use the scaling method to improve the video quality.
   const scaledViewport = {
     width: Math.round(
