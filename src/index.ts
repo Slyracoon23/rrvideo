@@ -81,7 +81,7 @@ type RRvideoConfig = {
 
 const defaultConfig: RRvideoConfig = {
   fps: 15,
-  headless: true,
+  headless: false,
   input: "",
   cb: () => {},
   output: "rrvideo-output.mp4",
