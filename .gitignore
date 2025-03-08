@@ -2,3 +2,12 @@ node_modules
 build
 temp
 __rrvideo__temp__
+data/*.webm
+data/*.mp4
+data/*.mp3
+data/*.wav
+data/*.ogg
+data/*.flac
+data/*.m4a
+
+snapshots/*.html
