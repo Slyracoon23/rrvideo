@@ -11,3 +11,5 @@ data/*.flac
 data/*.m4a
 
 snapshots/*.html
+
+element-highlights/*

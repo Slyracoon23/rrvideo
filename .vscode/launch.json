@@ -33,6 +33,24 @@
             "sourceMaps": true,
             "internalConsoleOptions": "openOnSessionStart",
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Run Snapshot Highlighter",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": [
+                "ts-node",
+                "src/snapshot_pipeline/highlight_elements.ts",
+                "--input",
+                "snapshots/snapshot_0_1739844581278.html"
+            ],
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "sourceMaps": true,
+            "internalConsoleOptions": "openOnSessionStart",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
