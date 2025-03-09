@@ -10,6 +10,8 @@ data/*.ogg
 data/*.flac
 data/*.m4a
 
+notebooks/.env
+
 snapshots/*.html
 
 element-highlights/*
