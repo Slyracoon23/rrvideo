@@ -80,9 +80,9 @@ if [ $MAX_JOBS -gt 0 ]; then
   PARALLEL_JOBS_ARG="-j $MAX_JOBS"
   echo "Using $MAX_JOBS parallel jobs"
 else
-  # Use 200% of CPU cores by default (double the cores)
-  PARALLEL_JOBS_ARG="-j 200%"
-  echo "Using 200% of CPU cores for parallel processing"
+  # Use 500% of CPU cores by default (5x the cores)
+  PARALLEL_JOBS_ARG="-j 500%"
+  echo "Using 500% of CPU cores for parallel processing"
 fi
 
 echo "----------------------------------------"
@@ -127,13 +127,17 @@ process_file() {
 # Export the function so parallel can use it
 export -f process_file
 
-# Process files in parallel and collect results
-# Pass OUTPUT_BASE_DIR as second argument to the function
-echo "$FILES_TO_PROCESS" | parallel $PARALLEL_JOBS_ARG "process_file {} \"$OUTPUT_BASE_DIR\""
+# Process files in parallel with visible console output
+# And simultaneously capture success/failure status for counting
+RESULTS_FILE=$(mktemp)
+echo "$FILES_TO_PROCESS" | parallel $PARALLEL_JOBS_ARG --tee "$RESULTS_FILE" "process_file {} \"$OUTPUT_BASE_DIR\" && echo SUCCESS || echo FAIL"
 
-# Count successful and failed files
-SUCCESSFUL_FILES=$(echo "$FILES_TO_PROCESS" | parallel $PARALLEL_JOBS_ARG -k "process_file {} \"$OUTPUT_BASE_DIR\" && echo 1 || echo 0" | grep -c "1")
-FAILED_FILES=$((TOTAL_FILES - SUCCESSFUL_FILES))
+# Count successful and failed files from the results file
+SUCCESSFUL_FILES=$(grep -c "SUCCESS" "$RESULTS_FILE")
+FAILED_FILES=$(grep -c "FAIL" "$RESULTS_FILE")
+
+# Clean up temp file
+rm "$RESULTS_FILE"
 
 echo "----------------------------------------"
 echo "Processing complete!"
