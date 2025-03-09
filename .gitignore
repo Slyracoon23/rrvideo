@@ -13,3 +13,5 @@ data/*.m4a
 snapshots/*.html
 
 element-highlights/*
+
+notebooks/processed_data/*
